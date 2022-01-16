@@ -65,6 +65,7 @@ namespace YoutubeDownloader.ViewModels.Dialogs
 
         public bool CanConfirm => SelectedVideos.Any() && !string.IsNullOrWhiteSpace(SelectedFormat);
 
+        public bool DownloadNamesOnly { get; set; }
         public void Confirm()
         {
             // Prompt for output directory path

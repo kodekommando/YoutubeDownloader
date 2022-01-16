@@ -187,5 +187,6 @@
                 IsCancel="True"
                 Style="{DynamicResource MaterialDesignFlatButton}" />
         </StackPanel>
+        <CheckBox x:Name="checkBox" Content="Download Names Only" IsChecked="{Binding DownloadNamesOnly}" HorizontalAlignment="Left" Margin="24,0,0,0" Grid.Row="3" VerticalAlignment="Center"/>
     </Grid>
 </UserControl>
