@@ -20,120 +20,130 @@ namespace YoutubeDownloader.ViewModels.Dialogs
 
         public string Title { get; set; } = default!;
 
-        public IReadOnlyList<IVideo> AvailableVideos { get; set; } = Array.Empty<IVideo>();
+        public IReadOnlyList<IVideo> AvailableVideos { get; set; } = Array.Empty<IVideo> ();
 
-        public IReadOnlyList<IVideo> SelectedVideos { get; set; } = Array.Empty<IVideo>();
+        public IReadOnlyList<IVideo> SelectedVideos { get; set; } = Array.Empty<IVideo> ();
 
-        public IReadOnlyList<string> AvailableFormats { get; set; } = new[] { "mp4", "mp3", "ogg" };
+        public IReadOnlyList<string> AvailableFormats { get; set; } = new[] { "mp4" , "mp3" , "ogg" };
 
         public IReadOnlyList<VideoQualityPreference> AvailableQualityPreferences { get; } =
-            Enum.GetValues(typeof(VideoQualityPreference)).Cast<VideoQualityPreference>().ToArray();
+            Enum.GetValues ( typeof ( VideoQualityPreference ) ).Cast<VideoQualityPreference> ().ToArray ();
 
         public string? SelectedFormat { get; set; }
 
         public VideoQualityPreference SelectedVideoQualityPreference { get; set; } = VideoQualityPreference.Maximum;
 
         public bool IsAudioOnlyFormatSelected =>
-            string.Equals(SelectedFormat, "mp3", StringComparison.OrdinalIgnoreCase) ||
-            string.Equals(SelectedFormat, "ogg", StringComparison.OrdinalIgnoreCase);
+            string.Equals ( SelectedFormat , "mp3" , StringComparison.OrdinalIgnoreCase ) ||
+            string.Equals ( SelectedFormat , "ogg" , StringComparison.OrdinalIgnoreCase );
 
-        public DownloadMultipleSetupViewModel(
-            IViewModelFactory viewModelFactory,
-            SettingsService settingsService,
-            DialogManager dialogManager)
+        public DownloadMultipleSetupViewModel (
+            IViewModelFactory viewModelFactory ,
+            SettingsService settingsService ,
+            DialogManager dialogManager )
         {
             _viewModelFactory = viewModelFactory;
             _settingsService = settingsService;
             _dialogManager = dialogManager;
         }
 
-        public void OnViewLoaded()
+        public void OnViewLoaded ()
         {
-            if (_settingsService.ExcludedContainerFormats is not null)
-                AvailableFormats = new[] {"mp4", "mp3", "ogg"}
-                    .Where(f => !_settingsService.ExcludedContainerFormats?.Contains(f, StringComparer.OrdinalIgnoreCase) == true)
-                    .ToArray();
+            if ( _settingsService.ExcludedContainerFormats is not null )
+                AvailableFormats = new[] { "mp4" , "mp3" , "ogg" }
+                    .Where ( f => !_settingsService.ExcludedContainerFormats?.Contains ( f , StringComparer.OrdinalIgnoreCase ) == true )
+                    .ToArray ();
 
             SelectedFormat =
-                !string.IsNullOrWhiteSpace(_settingsService.LastFormat) &&
-                AvailableFormats.Contains(_settingsService.LastFormat, StringComparer.OrdinalIgnoreCase)
+                !string.IsNullOrWhiteSpace ( _settingsService.LastFormat ) &&
+                AvailableFormats.Contains ( _settingsService.LastFormat , StringComparer.OrdinalIgnoreCase )
                     ? _settingsService.LastFormat
-                    : AvailableFormats.FirstOrDefault();
+                    : AvailableFormats.FirstOrDefault ();
 
             SelectedVideoQualityPreference = _settingsService.LastVideoQualityPreference;
         }
 
-        public bool CanConfirm => SelectedVideos.Any() && !string.IsNullOrWhiteSpace(SelectedFormat);
+        public bool CanConfirm => SelectedVideos.Any () && !string.IsNullOrWhiteSpace ( SelectedFormat );
 
         public bool DownloadNamesOnly { get; set; }
-        public void Confirm()
+        public void Confirm ()
         {
             // Prompt for output directory path
-            var dirPath = _dialogManager.PromptDirectoryPath();
-            if (string.IsNullOrWhiteSpace(dirPath))
+            var dirPath = _dialogManager.PromptDirectoryPath ();
+            if ( string.IsNullOrWhiteSpace ( dirPath ) )
                 return;
 
             _settingsService.LastFormat = SelectedFormat;
             _settingsService.LastVideoQualityPreference = SelectedVideoQualityPreference;
 
             // Make sure selected videos are ordered in the same way as available videos
-            var orderedSelectedVideos = AvailableVideos.Where(v => SelectedVideos.Contains(v)).ToArray();
+            var orderedSelectedVideos = AvailableVideos.Where ( v => SelectedVideos.Contains ( v ) ).ToArray ();
 
-            var downloads = new List<DownloadViewModel>();
-            for (var i = 0; i < orderedSelectedVideos.Length; i++)
+            PlaylsitMaker playlsitMaker = new PlaylsitMaker ( Title , dirPath );
+            var downloads = new List<DownloadViewModel> ();
+            var namesOnly = this.DownloadNamesOnly;
+
+            for ( var i = 0 ; i < orderedSelectedVideos.Length ; i++ )
             {
                 var video = orderedSelectedVideos[i];
 
-                var fileName = FileNameGenerator.GenerateFileName(
-                    _settingsService.FileNameTemplate,
-                    video,
-                    SelectedFormat!,
-                    (i + 1).ToString().PadLeft(orderedSelectedVideos.Length.ToString().Length, '0')
-                );
-
-                var filePath = Path.Combine(dirPath, fileName);
-
-                // If file exists or is no empty - either skip it or generate a unique file path, depending on user settings
-                var fileInfo = new FileInfo(filePath);
-
-                if (fileInfo.Exists && fileInfo.Length > 0)
+                if ( namesOnly )
                 {
-                    if (_settingsService.ShouldSkipExistingFiles)
-                        continue;
-
-                    filePath = PathEx.MakeUniqueFilePath(filePath);
+                    playlsitMaker.Add ( video );
                 }
+                else
+                {
+                    var fileName = FileNameGenerator.GenerateFileName (
+                        _settingsService.FileNameTemplate ,
+                        video ,
+                        SelectedFormat! ,
+                        ( i + 1 ).ToString ().PadLeft ( orderedSelectedVideos.Length.ToString ().Length , '0' )
+                    );
 
-                // Create empty file to "lock in" the file path.
-                // This is necessary as there may be other downloads with the same file name
-                // which would otherwise overwrite the file.
-                PathEx.CreateDirectoryForFile(filePath);
-                PathEx.CreateEmptyFile(filePath);
+                    var filePath = Path.Combine ( dirPath , fileName );
 
-                var download = _viewModelFactory.CreateDownloadViewModel(
-                    video,
-                    filePath,
-                    SelectedFormat!,
-                    SelectedVideoQualityPreference
-                );
+                    // If file exists or is no empty - either skip it or generate a unique file path, depending on user settings
+                    var fileInfo = new FileInfo ( filePath );
 
-                downloads.Add(download);
+                    if ( fileInfo.Exists && fileInfo.Length > 0 )
+                    {
+                        if ( _settingsService.ShouldSkipExistingFiles )
+                            continue;
+
+                        filePath = PathEx.MakeUniqueFilePath ( filePath );
+                    }
+
+                    // Create empty file to "lock in" the file path.
+                    // This is necessary as there may be other downloads with the same file name
+                    // which would otherwise overwrite the file.
+                    PathEx.CreateDirectoryForFile ( filePath );
+                    PathEx.CreateEmptyFile ( filePath );
+
+                    var download = _viewModelFactory.CreateDownloadViewModel (
+                        video ,
+                        filePath ,
+                        SelectedFormat! ,
+                        SelectedVideoQualityPreference
+                    );
+                    downloads.Add ( download );
+                }
             }
-
-            Close(downloads);
+            if ( namesOnly )
+                playlsitMaker.Save ();
+            Close ( downloads );
         }
 
-        public void CopyTitle() => Clipboard.SetText(Title);
+        public void CopyTitle () => Clipboard.SetText ( Title );
     }
 
     public static class DownloadMultipleSetupViewModelExtensions
     {
-        public static DownloadMultipleSetupViewModel CreateDownloadMultipleSetupViewModel(
-            this IViewModelFactory factory,
-            string title,
-            IReadOnlyList<IVideo> availableVideos)
+        public static DownloadMultipleSetupViewModel CreateDownloadMultipleSetupViewModel (
+            this IViewModelFactory factory ,
+            string title ,
+            IReadOnlyList<IVideo> availableVideos )
         {
-            var viewModel = factory.CreateDownloadMultipleSetupViewModel();
+            var viewModel = factory.CreateDownloadMultipleSetupViewModel ();
 
             viewModel.Title = title;
             viewModel.AvailableVideos = availableVideos;
